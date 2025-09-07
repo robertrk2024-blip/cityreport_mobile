@@ -2,62 +2,46 @@
 import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
-import PWAInstallPrompt from '../components/PWAInstallPrompt'
+import Header from '../components/Header'
+import BottomNav from '../components/BottomNav'
+import NotificationSystem from '../components/NotificationSystem'
 import UniversalNotificationSystem from '../components/UniversalNotificationSystem'
+import PWAInstallPrompt from '../components/PWAInstallPrompt'
 
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
   title: 'CityReport - Signalement Citoyen',
-  description: 'Application de signalement des problèmes urbains pour améliorer notre ville ensemble',
-  keywords: 'signalement, citoyen, ville, problème urbain, mairie, administration',
-  authors: [{ name: 'Groupe UMOJA - Ir Robert Kitenge RK' }],
-  creator: 'Groupe UMOJA - Ir Robert Kitenge RK',
-  publisher: 'Ville',
-  robots: 'index, follow',
-  alternates: {
-    canonical: 'https://cityreport.ville.fr'
+  description: 'Application de signalement pour les citoyens - Améliorons notre ville ensemble',
+  manifest: '/manifest.json',
+  keywords: ['signalement', 'citoyen', 'ville', 'municipal', 'problème urbain'],
+  authors: [{ name: 'CityReport Team' }],
+  creator: 'CityReport',
+  publisher: 'CityReport',
+  formatDetection: {
+    email: false,
+    address: false,
+    telephone: false,
   },
-  openGraph: {
-    type: 'website',
-    locale: 'fr_FR',
-    url: 'https://cityreport.ville.fr',
-    title: 'CityReport - Signalement Citoyen',
-    description: 'Signalez facilement les problèmes urbains et aidez à améliorer votre ville',
-    siteName: 'CityReport',
-    images: [
-      {
-        url: '/icons/icon-512x512.png',
-        width: 512,
-        height: 512,
-        alt: 'CityReport Logo'
-      }
-    ]
-  },
-  twitter: {
-    card: 'summary_large_image',
-    title: 'CityReport - Signalement Citoyen',
-    description: 'Application de signalement des problèmes urbains',
-    creator: '@cityreport',
-    images: ['/icons/icon-512x512.png']
+  icons: {
+    icon: '/icon-192x192.png',
+    shortcut: '/icon-72x72.png',
+    apple: '/icon-192x192.png',
   },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'CityReport'
+    title: 'CityReport',
+    startupImage: '/icon-512x512.png',
   },
-  applicationName: 'CityReport',
-  referrer: 'origin-when-cross-origin',
-  category: 'government'
 }
 
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
-  userScalable: false,
-  themeColor: '#2563eb',
-  colorScheme: 'light'
+  userScalable: true,
+  themeColor: '#ef4444',
 }
 
 export default function RootLayout({
@@ -68,20 +52,10 @@ export default function RootLayout({
   return (
     <html lang="fr">
       <head>
-        <link rel="manifest" href="/manifest.json" />
-        <link rel="icon" href="/icons/icon-72x72.png" />
-        <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
-        <link rel="shortcut icon" href="/icons/icon-72x72.png" />
-        
-        {/* Preconnect aux domaines externes */}
-        <link rel="preconnect" href="https://readdy.ai" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        
-        {/* Préchargement des ressources critiques */}
-        <link rel="preload" href="/icons/icon-192x192.png" as="image" />
-        
-        {/* Service Worker Registration */}
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
+        <link href="https://fonts.googleapis.com/css2?family=Pacifico&display=swap" rel="stylesheet" />
+        <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet" />
         <script
           dangerouslySetInnerHTML={{
             __html: `
@@ -89,21 +63,95 @@ export default function RootLayout({
                 window.addEventListener('load', function() {
                   navigator.serviceWorker.register('/sw.js')
                     .then(function(registration) {
-                      console.log('SW registered: ', registration);
+                      console.log('✅ SW enregistré:', registration);
+
+                      // Demander l'autorisation pour les notifications
+                      if ('Notification' in window && Notification.permission === 'default') {
+                        Notification.requestPermission().then(function(permission) {
+                          console.log('🔔 Permission notifications:', permission);
+                        });
+                      }
+
+                      // Écouter les mises à jour du Service Worker
+                      registration.addEventListener('updatefound', function() {
+                        console.log('🔄 Mise à jour SW disponible');
+                      });
                     })
                     .catch(function(registrationError) {
-                      console.log('SW registration failed: ', registrationError);
+                      console.log('❌ Échec enregistrement SW:', registrationError);
                     });
                 });
               }
-            `,
+
+              // Système de notifications universelles amélioré
+              window.universalNotify = function(title, message, options = {}) {
+                const defaultOptions = {
+                  channels: ['push', 'sms'],
+                  priority: 'medium',
+                  type: 'info',
+                  ...options
+                };
+
+                console.log('📢 Notification universelle:', { title, message, defaultOptions });
+
+                // Push pour les utilisateurs avec l'app via Service Worker
+                if (defaultOptions.channels.includes('push') && 'serviceWorker' in navigator) {
+                  navigator.serviceWorker.ready.then(function(registration) {
+                    if (registration.showNotification) {
+                      registration.showNotification(title, {
+                        body: message,
+                        icon: '/icon-192x192.png',
+                        badge: '/icon-72x72.png',
+                        requireInteraction: defaultOptions.priority === 'critical',
+                        tag: 'universal-' + Date.now(),
+                        data: defaultOptions
+                      });
+                    }
+                  }).catch(function(error) {
+                    console.log('❌ Erreur notification SW:', error);
+
+                    // Fallback avec Notification API classique
+                    if ('Notification' in window && Notification.permission === 'granted') {
+                      new Notification(title, {
+                        body: message,
+                        icon: '/icon-192x192.png'
+                      });
+                    }
+                  });
+                }
+
+                // SMS pour tous les citoyens (même sans app)
+                if (defaultOptions.channels.includes('sms')) {
+                  console.log('📱 SMS programmé pour tous les citoyens inscrits');
+                  // En production: intégration API SMS
+                }
+
+                // Email si nécessaire
+                if (defaultOptions.channels.includes('email')) {
+                  console.log('📧 Email programmé pour diffusion');
+                  // En production: intégration service email
+                }
+              };
+
+              // Test automatique du système (en développement)
+              setTimeout(function() {
+                if (typeof window.universalNotify === 'function') {
+                  console.log('🧪 Test du système de notifications universelles...');
+                }
+              }, 3000);
+            `
           }}
         />
       </head>
       <body className={inter.className}>
-        {children}
-        <PWAInstallPrompt />
-        <UniversalNotificationSystem />
+        <div className="w-full min-h-screen bg-gray-50 relative mx-auto max-w-7xl">
+          <Header />
+          <NotificationSystem />
+          <UniversalNotificationSystem />
+          <PWAInstallPrompt />
+          {children}
+          <BottomNav />
+        </div>
       </body>
     </html>
   )
